@@ -4,17 +4,17 @@
 
 **External providers only ever receive masked text — never raw PII, mappings, or encryption keys.**
 
+---
+
 ## Problem
 
-Applications increasingly send user/customer text to external AI providers. That text can contain email addresses, phone numbers, account identifiers, credit cards, SSNs, and other sensitive information.
+Applications increasingly send user/customer text to external LLM providers. That text often contains PII such as email addresses, phone numbers, account identifiers, SSNs, and credit-card numbers.
 
-Sending raw PII to third-party AI providers creates privacy, compliance, and breach-impact risks.
-
-PrivacyMask creates a security boundary between the application and the external AI provider.
+Sending raw PII to third-party AI providers can increase privacy, compliance, and breach-impact risks.
 
 ## Solution
 
-PrivacyMask acts as a privacy gateway between your application and external LLM providers.
+PrivacyMask acts as a gateway between an application and an external LLM provider.
 
 ```text
 Client
@@ -26,7 +26,7 @@ PrivacyMask Gateway
   |
   +--> Rate Limiting
   |
-  +--> Validation
+  +--> Request Validation
   |
   +--> PII Detection
   |
@@ -35,210 +35,242 @@ PrivacyMask Gateway
   +--> AES-256-GCM Encrypted Mapping
   |
   +--> LLM Provider
-  |      |
-  |      +--> Mock
-  |      +--> OpenAI
-  |      +--> Anthropic
+  |       |
+  |       +--> Mock
+  |       +--> OpenAI
+  |       +--> Anthropic
   |
   +--> Response Re-hydration
   |
   v
 Client
+```
 
-The critical privacy boundary is:
+### Core privacy boundary
 
+```text
 RAW PII
-   |
-   v
+  |
+  v
 PrivacyMask
-   |
-   +----> MASKED TEXT ----> External LLM
-   |
-   +----> ENCRYPTED MAPPING remains server-side
+  |
+  +----> MASKED TEXT ----> External LLM
+  |
+  +----> ENCRYPTED MAPPING ----> Server-side only
+  |
+  v
+RE-HYDRATED RESPONSE
+```
 
-External providers never receive raw PII, encryption keys, or token mappings.
+**Raw PII never crosses the provider boundary.**
 
-Key Features
-Real-time PII detection and masking.
-Opaque replacement tokens such as {{EMAIL_001}}.
-AES-256-GCM encrypted token mappings.
-Server-side response re-hydration.
-Mock provider for local development.
-OpenAI provider support.
-Anthropic provider support.
-Provider boundary accepts masked/sanitized text only.
-API-key authentication using X-API-Key.
-Constant-time API-key comparison.
-Authentication before privacy-sensitive processing.
-Token-bucket rate limiting.
-429 Too Many Requests with Retry-After.
-Request-size validation.
-Input validation.
-Restricted CORS configuration.
-Sanitized error responses.
-Metadata-only application logging.
-React/Vite playground.
-Frontend API key kept in browser memory only.
-No provider credentials in the frontend.
-Automated backend and frontend tests.
-Production-oriented security model.
-Technology Stack
-Backend
-Java 21
-Spring Boot 3.3.5
-Spring WebFlux
-Spring Security
-Jakarta Validation
-Maven
-AES-256-GCM
-JUnit / Spring testing infrastructure
-Frontend
-React 18
-Vite
-Vitest
-Testing Library
-JavaScript
-Security
-API-key authentication
-Constant-time credential comparison
-AES-256-GCM
-Server-side encrypted mappings
-Masked provider boundary
-Restricted CORS
-Rate limiting
-Sanitized error envelopes
-No plaintext PII logging
-Architecture
+---
 
-The processing pipeline is intentionally ordered:
+## Key Features
 
+- Real-time PII detection and masking
+- Opaque token replacement such as `{{EMAIL_001}}`
+- AES-256-GCM encrypted token mappings
+- Server-side response re-hydration
+- Mock provider for local development and demonstrations
+- OpenAI provider integration
+- Anthropic provider integration
+- API-key authentication using `X-API-Key`
+- Constant-time API-key comparison
+- Authentication before privacy processing
+- Token-bucket rate limiting
+- `429` responses with `Retry-After`
+- Request-size validation
+- Sanitized error responses
+- Restricted CORS configuration
+- Provider boundary that accepts masked text only
+- React/Vite playground
+- Frontend API key held in memory only
+- No provider SDKs or provider credentials in the frontend
+- Production-oriented security checks and regression tests
+
+---
+
+## Technology Stack
+
+### Backend
+
+- Java 21
+- Spring Boot 3.3.5
+- Spring WebFlux
+- Spring Security
+- Jakarta Validation
+- Maven
+- AES-256-GCM
+- REST API
+
+### Frontend
+
+- React 18
+- Vite
+- Vitest
+- Testing Library
+
+### Security
+
+- API-key authentication
+- Constant-time credential comparison
+- AES-256-GCM encryption
+- Encrypted server-side mappings
+- Rate limiting
+- Restricted CORS
+- Sanitized error envelopes
+- Provider-boundary isolation
+- No secrets in frontend code
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[Client / React Playground]
+    B[PrivacyMask Gateway]
+    C[Authentication]
+    D[Rate Limiter]
+    E[Validation]
+    F[PII Detection]
+    G[Masking]
+    H[AES-256-GCM Mapping]
+    I[LLM Provider]
+    J[Response Re-hydration]
+    K[Client Response]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    G --> I
+    I --> J
+    H --> J
+    J --> K
+
+    I -. "MASKED TEXT ONLY" .-> I
+```
+
+The implemented processing order is:
+
+```text
 AUTH
-  |
-  v
+  ->
 RATE LIMIT
-  |
-  v
+  ->
 VALIDATION
-  |
-  v
+  ->
 DETECTION
-  |
-  v
+  ->
 MASKING
-  |
-  v
+  ->
 ENCRYPTED MAPPING
-  |
-  v
+  ->
 PROVIDER
-  |
-  v
+  ->
 RE-HYDRATION
-  |
-  v
-CLIENT
+```
 
-The important security property is:
+---
 
-                  +----------------------+
-                  |      PrivacyMask     |
-                  |                      |
-Raw PII --------->| Detect + Mask        |
-                  |        |             |
-                  |        v             |
-                  | Encrypted Mapping    |
-                  |        |             |
-                  |        v             |
-                  | Masked Provider Text |
-                  +--------|-------------+
-                           |
-                           v
-                    External LLM
-Data Flow Example
+## Example
 
-Input:
+### Input
 
+```text
 Customer john@example.com needs help with his refund.
+```
 
-PrivacyMask detects:
+### Masked provider input
 
-EMAIL
-
-The provider receives:
-
+```text
 Customer {{EMAIL_001}} needs help with his refund.
+```
 
-The mapping is retained server-side in encrypted form.
+The external provider receives only the masked text.
+
+### Server-side mapping
 
 Conceptually:
 
+```text
 {{EMAIL_001}} -> encrypted("john@example.com")
+```
 
-The provider does not receive:
+The plaintext mapping is not sent to the provider.
 
-john@example.com
+### Re-hydrated provider response
 
-The provider does not receive:
+```text
+Customer john@example.com needs help with his refund.
+Mock analysis completed.
+```
 
-encryption key
+---
 
-The provider does not receive:
+# API
 
-mapping
+## 1. GET `/api/v1/privacymask/status`
 
-After the provider responds, PrivacyMask performs server-side re-hydration before returning the response to the authorized caller.
-
-API
-
-Local backend URL:
-
-http://localhost:8081
-GET /api/v1/privacymask/status
-
-Public status endpoint.
+Public health/status endpoint.
 
 Example:
 
-curl.exe http://localhost:8081/api/v1/privacymask/status
+```http
+GET /api/v1/privacymask/status
+```
 
-The status response contains application and configuration-presence information.
+Example response:
 
-Provider credentials themselves are never returned.
+```json
+{
+  "application": "PrivacyMask",
+  "status": "UP",
+  "version": "0.1.0",
+  "openaiConfigured": false,
+  "anthropicConfigured": false,
+  "securityConfigured": true,
+  "rateLimitConfigured": true
+}
+```
 
-POST /api/v1/privacymask/analyze
+The provider configuration fields expose configuration presence only. Provider credentials are never returned.
 
-Protected endpoint.
+---
 
-Authentication:
+## 2. POST `/api/v1/privacymask/analyze`
 
-X-API-Key
+Analyzes text, detects PII, masks it, sends the masked text to the selected provider, and re-hydrates the provider response.
 
-Content type:
+### Authentication
 
-application/json
+```http
+X-API-Key: <your-api-key>
+```
 
-Request:
+### Request
 
+```json
 {
   "text": "Customer john@example.com needs help with his refund.",
   "provider": "mock"
 }
+```
 
-PowerShell:
+Both `text` and `provider` are required.
 
-cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\privacymask-backend
+### Response
 
-curl.exe -i `
-  -X POST `
-  "http://localhost:8081/api/v1/privacymask/analyze" `
-  -H "Content-Type: application/json" `
-  -H "X-API-Key: test-service-key" `
-  --data-binary "@request-valid.json"
+Current response contract:
 
-Example response:
-
+```json
 {
-  "requestId": "...",
+  "requestId": "17af803a-e37d-4050-9007-6c068cc267d6",
   "originalText": "Customer john@example.com needs help with his refund.",
   "processedText": "Customer {{EMAIL_001}} needs help with his refund.",
   "provider": "mock",
@@ -253,246 +285,257 @@ Example response:
   ],
   "response": "Customer john@example.com needs help with his refund. Mock analysis completed."
 }
-Current Privacy Contract
+```
 
-The current MVP intentionally returns:
+### Important demo-contract note
 
-originalText
+The current MVP intentionally returns `originalText` and raw `detections[].value` in the response for development/demo transparency.
 
-and:
+The frontend does **not** need these raw fields to display the masked result. The current UI displays detection metadata such as type and character range and displays the masked tokens.
 
-detections[].value
+This is a documented MVP limitation, not a provider-boundary exception.
 
-for development/demo transparency.
+A future version can introduce a deliberately versioned response contract that removes raw PII from the default response.
 
-This is a documented MVP limitation.
+---
 
-It is not required for the provider security boundary.
+# Supported Providers
 
-The provider still receives only masked text.
+## Mock
 
-The frontend does not require the raw detection values. The frontend can display:
+Recommended for local development and demonstrations.
 
-PII type
-token
-character range
+```json
+{
+  "text": "Customer john@example.com needs help.",
+  "provider": "mock"
+}
+```
 
-without receiving the original PII value.
+The mock provider does not require an external API credential.
 
-A future version can introduce a versioned response contract that removes unnecessary raw-PII echo without silently breaking the current API.
+## OpenAI
 
-For the current MVP, consumers should treat the API response as potentially sensitive and should not indiscriminately log or persist it.
+OpenAI requests receive only the masked text.
 
-Security Model
-Authentication
+The OpenAI API key remains backend-only.
 
-Protected analysis requests require:
+## Anthropic
 
-X-API-Key
+Anthropic requests receive only the masked text.
 
-API keys are compared using a constant-time comparison mechanism.
+The Anthropic API key remains backend-only.
 
-Missing or incorrect API keys are rejected before privacy-sensitive processing.
+### Provider security rule
 
-Expected responses:
+Providers must never receive:
 
-Missing API key -> 401
-Wrong API key   -> 401
-Valid API key   -> processing continues
-Rate Limiting
+- Raw PII
+- Encryption mappings
+- Encryption keys
+- Frontend API keys
+- Internal mapping identifiers containing plaintext PII
 
-/analyze uses token-bucket rate limiting.
+---
 
-When the configured limit is exhausted:
+# Security Model
 
+## Authentication
+
+The `/analyze` endpoint requires an API key.
+
+Authentication is performed before privacy-sensitive processing.
+
+Missing or incorrect API keys result in `401 Unauthorized`.
+
+API-key comparison uses constant-time comparison.
+
+---
+
+## Rate Limiting
+
+Rate limiting is applied to `/analyze`.
+
+The current implementation uses an in-memory token-bucket limiter.
+
+When the limit is exceeded:
+
+```text
 HTTP 429 Too Many Requests
+```
 
 The response includes:
 
+```text
 Retry-After
+```
 
-Unauthenticated requests do not consume an authenticated caller's quota.
+Unauthenticated requests do not consume authenticated request quota.
 
-The current implementation is in-memory and therefore intended for a single-instance MVP deployment.
+### Current limitation
 
-PII Detection
+The limiter is single-instance and in-memory.
 
-The current MVP performs rule/regex-based detection.
+For a multi-instance production deployment, a shared distributed rate limiter such as Redis would be required.
 
-Examples include supported sensitive values such as:
+---
 
-john@example.com
+## PII Detection
 
-which becomes:
+The current implementation uses regex/rule-based detection.
 
-{{EMAIL_001}}
+The implemented detection system includes PII categories supported by the current codebase, including email, phone and other supported structured identifiers.
 
-Detection metadata includes:
+The current MVP does not implement `PERSON_NAME` NLP detection.
 
-type
-value
-start
-end
+---
 
-The current implementation does not provide full NLP-based person-name detection.
-
-PERSON_NAME NLP detection is reserved for future scope.
-
-Masking
+## Masking
 
 Detected PII is replaced with opaque tokens.
 
 Example:
 
-Customer john@example.com needs help.
+```text
+john@example.com
+```
 
 becomes:
 
-Customer {{EMAIL_001}} needs help.
+```text
+{{EMAIL_001}}
+```
 
-The token does not contain the original value.
+The provider receives the masked representation.
 
-Encryption
+---
 
-Token mappings use:
+## Encryption
 
+Mappings are protected using:
+
+```text
 AES/GCM/NoPadding
+```
 
 with:
 
-256-bit encryption key
-fresh nonce
-authenticated encryption tag
-strict key validation
+- 256-bit key
+- Fresh 12-byte nonce
+- 128-bit authentication tag
+- Strict Base64 decoding
+- Exact 32-byte decoded key requirement
 
-The configured encryption key must be Base64 that decodes to exactly:
+The encryption key must be supplied through configuration/environment.
 
-32 bytes
+It must never be hard-coded into source code.
 
-which is:
+---
 
-256 bits
+## Mapping Storage
 
-PowerShell key generation:
+The current MVP keeps encrypted mappings in memory with a TTL.
 
-$b = New-Object byte[] 32
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
-[Convert]::ToBase64String($b)
+The mapping store contains ciphertext rather than plaintext PII.
 
-Never commit the generated key.
+### Current limitation
 
-Never place the real key inside source code.
+The mapping store is:
 
-Provider Boundary
+- In-memory
+- Single-instance
+- Non-persistent
 
-This is the most important security property of PrivacyMask.
+A future production deployment can replace this with an appropriate distributed/persistent storage design.
 
-The provider receives:
+---
 
-Sanitized / masked text
+## Response Re-hydration
 
-The provider does NOT receive:
+The provider response is processed server-side.
 
-Raw PII
+Opaque tokens are replaced with their original values using the server-side encrypted mapping.
 
-The provider does NOT receive:
+The frontend never receives the encryption key.
 
-Encryption keys
+---
 
-The provider does NOT receive:
+## Frontend Security
 
-Encrypted mappings
+The frontend:
 
-The provider boundary is enforced server-side.
+- Does not perform PII detection
+- Does not perform encryption
+- Does not contain provider credentials
+- Does not call OpenAI directly
+- Does not call Anthropic directly
+- Does not store the API key in localStorage
+- Does not store the API key in sessionStorage
+- Keeps the API key in memory during the session
 
-The frontend never communicates directly with OpenAI or Anthropic.
+The frontend communicates with the PrivacyMask backend only.
 
-Provider Support
-Mock
+---
 
-The mock provider is intended for:
-
-local development
-automated tests
-demonstrations
-smoke testing
-
-Example:
-
-Customer {{EMAIL_001}} needs help with his refund.
-
-The mock provider returns a deterministic analysis response.
-
-OpenAI
-
-The OpenAI provider receives masked text only.
-
-OpenAI credentials remain backend-side.
-
-The frontend never receives the OpenAI API key.
-
-Anthropic
-
-The Anthropic provider receives masked text only.
-
-Anthropic credentials remain backend-side.
-
-The frontend never receives the Anthropic API key.
-
-Logging Security
-
-Application logging is intentionally metadata-oriented.
-
-Logs may contain:
-
-requestId
-provider
-request path
-HTTP status
-detection count
-detection type
-
-Logs should not contain:
-
-raw request bodies
-raw PII
-API keys
-provider credentials
-encryption keys
-plaintext mappings
-ciphertext mappings
-Error Handling
-
-PrivacyMask uses sanitized error responses.
-
-Example:
-
-{
-  "timestamp": "...",
-  "status": 401,
-  "error": "Unauthorized",
-  "message": "...",
-  "path": "/api/v1/privacymask/analyze"
-}
-
-Internal stack traces and sensitive implementation details are not exposed to API consumers.
-
-CORS
+## CORS
 
 CORS is restricted to explicitly configured origins.
 
+Wildcard:
+
+```text
+*
+```
+
+is rejected rather than being treated as a valid production origin.
+
+Credentials are not enabled.
+
+---
+
+## Logging
+
+Application logging intentionally avoids:
+
+- Request bodies
+- Raw PII
+- API keys
+- Provider credentials
+- Encryption keys
+- Encryption mappings
+- Ciphertext
+
+Logs contain operational metadata such as request IDs, method/path, provider names, counts and status information.
+
+---
+
+## Error Handling
+
+The API uses sanitized error envelopes.
+
 Example:
 
-$env:PRIVACYMASK_CORS_ALLOWED_ORIGINS="http://localhost:5173"
+```json
+{
+  "timestamp": "2026-09-25T13:41:18.645Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid request.",
+  "path": "/api/v1/privacymask/analyze"
+}
+```
 
-Wildcard CORS is not accepted as a production-safe configuration.
+Internal stack traces, secrets and implementation details are not returned to clients.
 
-Credentials are not enabled for arbitrary origins.
+---
 
-Environment Variables
+# Configuration
 
-Backend configuration includes:
+Backend configuration is environment-driven.
 
+Important variables include:
+
+```text
 PRIVACYMASK_APP_NAME
 PRIVACYMASK_APP_VERSION
 PRIVACYMASK_ENCRYPTION_KEY
@@ -511,316 +554,294 @@ PRIVACYMASK_ANTHROPIC_API_KEY
 PRIVACYMASK_ANTHROPIC_BASE_URL
 PRIVACYMASK_ANTHROPIC_MODEL
 PRIVACYMASK_ANTHROPIC_API_VERSION
+```
 
 Frontend:
 
+```text
 VITE_PRIVACYMASK_API_URL
+```
 
-Use the provided .env.example files as templates.
+---
 
-Never commit:
+# Encryption Key Generation
 
-.env
+The encryption key must be Base64 encoding of exactly 32 random bytes.
 
-or real credentials.
+## PowerShell
 
-Local Development
-Prerequisites
-
-Install:
-
-Java 21
-Maven
-Node.js
-npm
-
-The current MVP does not require:
-
-PostgreSQL
-Redis
-Kafka
-Docker
-Start Backend
-
-Open PowerShell:
-
-cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\privacymask-backend
-
-Set the development API key:
-
-$env:PRIVACYMASK_API_KEY="test-service-key"
-
-Generate a fresh development encryption key:
-
+```powershell
 $b = New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
-$env:PRIVACYMASK_ENCRYPTION_KEY=[Convert]::ToBase64String($b)
+$env:PRIVACYMASK_ENCRYPTION_KEY = [Convert]::ToBase64String($b)
+```
 
-Set CORS:
+Do not use a raw 32-character ASCII string as the value.
 
-$env:PRIVACYMASK_CORS_ALLOWED_ORIGINS="http://localhost:5173"
+Incorrect:
 
-Start:
+```text
+01234567890123456789012345678901
+```
 
-mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=8081"
+Correct format:
+
+```text
+<base64 encoding of 32 random bytes>
+```
+
+Never commit a real encryption key.
+
+---
+
+# Environment Examples
+
+The repository contains `.env.example` templates.
+
+They contain placeholders only.
+
+For local development, configure environment variables in your shell rather than committing `.env` files.
+
+---
+
+# Local Development
+
+## Requirements
 
 Backend:
 
-http://localhost:8081
-Start Frontend
-
-Open another PowerShell window:
-
-cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\frontend
-
-Install dependencies:
-
-npm install
-
-Start:
-
-npm run dev
+```text
+Java 21
+Maven 3.9+
+```
 
 Frontend:
 
+```text
+Node.js
+npm
+```
+
+---
+
+## Start Backend
+
+From PowerShell:
+
+```powershell
+cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\privacymask-backend
+
+$env:PRIVACYMASK_API_KEY="test-service-key"
+
+$b = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
+$env:PRIVACYMASK_ENCRYPTION_KEY = [Convert]::ToBase64String($b)
+
+$env:PRIVACYMASK_CORS_ALLOWED_ORIGINS="http://localhost:5173"
+
+mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=8081"
+```
+
+The backend is then available at:
+
+```text
+http://localhost:8081
+```
+
+---
+
+## Start Frontend
+
+Open another terminal:
+
+```powershell
+cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\frontend
+
+npm install
+npm run dev
+```
+
+The Vite development server normally runs at:
+
+```text
 http://localhost:5173
-Frontend Security
+```
 
-The frontend:
+---
 
-communicates only with the PrivacyMask backend;
-does not call OpenAI directly;
-does not call Anthropic directly;
-contains no provider credentials;
-contains no encryption keys;
-performs no PII detection;
-keeps the entered API key in memory;
-does not intentionally store the API key in localStorage;
-does not intentionally store the API key in sessionStorage;
-does not use cookies for the API key;
-provides a clear operation for removing the in-memory key.
+# Manual API Test
 
-The frontend result UI displays masked tokens and detection metadata.
+The repository contains a local `request-valid.json` payload for manual testing.
 
-It does not need to display raw detection values.
+From the backend directory:
 
-Testing
-Backend
+```powershell
+cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\privacymask-backend
+```
 
-Run:
+Status:
 
-cd privacymask-backend
-mvn clean test
-
-Verified release baseline:
-
-Tests run: 361
-Failures: 0
-Errors: 0
-Skipped: 0
-
-BUILD SUCCESS
-
-Backend coverage includes tests for:
-
-authentication
-missing API key
-wrong API key
-valid API key
-authentication isolation
-rate limiting
-validation
-malformed JSON
-oversized requests
-provider selection
-provider boundary
-masking
-detection
-encryption
-invalid encryption configuration
-response re-hydration
-CORS
-error handling
-security regressions
-Frontend Tests
-
-Run:
-
-cd frontend
-npm test -- --run
-
-Verified result:
-
-14 passed
-0 failed
-Frontend Production Build
-
-Run:
-
-npm run build
-
-Verified:
-
-PASS
-37 modules
-
-The generated dist/ directory is ignored by Git.
-
-Manual Smoke Test
-
-Create:
-
-privacymask-backend/request-valid.json
-
-with:
-
-{
-  "text": "Customer john@example.com needs help with his refund.",
-  "provider": "mock"
-}
-
-Check status:
-
+```powershell
 curl.exe http://localhost:8081/api/v1/privacymask/status
-
-Expected:
-
-HTTP 200
+```
 
 Analyze:
 
+```powershell
 curl.exe -i `
   -X POST `
   "http://localhost:8081/api/v1/privacymask/analyze" `
   -H "Content-Type: application/json" `
   -H "X-API-Key: test-service-key" `
   --data-binary "@request-valid.json"
+```
 
 Expected:
 
+```text
 HTTP/1.1 200 OK
+```
 
-Expected masked text:
+with masked output similar to:
 
+```text
 Customer {{EMAIL_001}} needs help with his refund.
+```
 
-Expected re-hydrated response:
+and a re-hydrated response.
 
-Customer john@example.com needs help with his refund. Mock analysis completed.
-Negative Security Tests
-Test	Expected Result
-No API key	401
-Wrong API key	401
-Invalid JSON	400
-Unsupported provider	400
-Oversized request	413
-Provider failure	502
-Encryption failure with PII	500
-Rate limit exhausted	429
+---
 
-Security tests verify that the system does not expose:
+# Frontend Playground
 
-encryption keys
-provider credentials
-stack traces
-ciphertext
-internal mappings
-provider-side raw PII
-Repository Hygiene
+The React playground provides:
 
-The repository ignores local/generated files such as:
+- Gateway status
+- Pipeline visualization
+- Text input
+- Provider selection
+- API-key input
+- Masked result display
+- Detection metadata
+- Provider response
+- Request ID/status information
 
-target/
-node_modules/
-dist/
-.env
-logs
-temporary request files
-temporary encryption-key files
+The API key is held in browser memory only.
 
-Before committing:
+The frontend does not store it persistently.
 
-git status
-git diff --check
+---
 
-Never commit:
+# Testing
 
-real API keys
-real encryption keys
-provider credentials
-customer data
-production secrets
-GitHub
+## Backend
 
-Repository:
+Run:
 
-https://github.com/debashis-behera-java/PrivacyMask
+```powershell
+cd privacymask-backend
+mvn clean test
+```
 
-Suggested GitHub description:
+Verified baseline:
 
-Privacy gateway for LLM apps: PII masking, AES-256-GCM mappings and secure response re-hydration.
+```text
+Tests run: 361
+Failures: 0
+Errors: 0
+Skipped: 0
 
-Suggested topics:
+BUILD SUCCESS
+```
 
-java
-spring-boot
-spring-webflux
-spring-security
-react
-privacy
-pii
-data-masking
-llm
-ai-security
-cybersecurity
-aes-gcm
-rest-api
-Production Considerations
+The test suite covers:
 
-The current implementation is an MVP and should not be treated as a finished multi-instance enterprise deployment.
+- Authentication
+- Missing API key
+- Invalid API key
+- Security isolation
+- Rate limiting
+- Rate-limit concurrency
+- Request validation
+- Malformed JSON
+- Oversized requests
+- PII detection
+- Masking
+- Encryption
+- Invalid encryption keys
+- Mapping protection
+- Response re-hydration
+- Provider boundaries
+- OpenAI boundary
+- Anthropic boundary
+- Error handling
+- CORS
+- Configuration
+- Regression cases
 
-Before production use, consider:
+---
 
-Replacing the in-memory mapping store with a secure distributed store.
-Replacing the in-memory rate limiter with distributed rate limiting.
-Using production secret management.
-Using TLS through the deployment/reverse-proxy layer.
-Defining data retention and deletion policies.
-Adding privacy-safe audit/observability controls.
-Strengthening PII detection for the application's domain.
-Introducing a versioned response contract with minimal raw-PII exposure.
-Adding container/orchestration deployment if required.
-Performing a formal threat model and security review before handling real customer data.
-Known Limitations
+## Frontend
 
-The following are known and intentionally deferred:
+Run:
 
-In-memory mapping store.
-Single-instance in-memory rate limiter.
-Regex/rule-based PII detection.
-No full PERSON_NAME NLP detection.
-No PostgreSQL persistence.
-No Redis.
-No Kafka.
-No Docker deployment.
-No distributed mapping storage.
-No distributed rate limiting.
-No policy engine.
-No authenticated administrative dashboard.
-TLS is expected at the deployment/reverse-proxy layer.
-Development-oriented default configuration.
-Current MVP response includes originalText.
-Current MVP response includes detections[].value.
-Versioned response contract without unnecessary raw-PII echo is deferred.
+```powershell
+cd frontend
+npm test -- --run
+```
 
-These are documented scope limitations rather than hidden defects.
+Verified baseline:
 
-Privacy Contract Decision
+```text
+2 test files
+14 tests passed
+0 failed
+```
 
-The current MVP deliberately preserves the existing API response contract.
+---
 
-The current response contains:
+## Production Build
 
+```powershell
+npm run build
+```
+
+Verified build:
+
+```text
+37 modules
+BUILD PASS
+```
+
+---
+
+# Security Verification
+
+The current release has been manually verified for:
+
+| Scenario | Expected |
+|---|---|
+| No API key | `401` |
+| Wrong API key | `401` |
+| Valid API key | `200` |
+| Invalid JSON | `400` |
+| Unsupported provider | `400` |
+| Oversized request | `413` |
+| Provider failure | `502` |
+| Encryption failure | `500` |
+| Rate-limit exhaustion | `429` |
+| Valid PII request | `200` |
+| Provider receives masked text | PASS |
+| Response re-hydration | PASS |
+| CORS restricted | PASS |
+
+---
+
+# Current API Privacy Contract
+
+The current MVP response contains:
+
+```text
 requestId
 originalText
 processedText
@@ -828,288 +849,273 @@ provider
 status
 detections
 response
+```
 
-The security boundary remains:
+`detections` currently contains:
 
-Client
-  |
-  v
-PrivacyMask
-  |
-  +--> Raw PII detected
-  |
-  +--> Raw PII masked
-  |
-  +--> Mapping encrypted
-  |
-  +--> Only masked text sent to provider
-  |
-  +--> Provider response re-hydrated server-side
-  |
-  v
-Authorized client
+```text
+type
+value
+start
+end
+```
 
-The current raw-PII echo is a documented MVP/demo behavior.
+### Why this exists
 
-It is not required for the provider privacy boundary.
+The current contract was deliberately retained as a transparent development/demo contract.
 
-A future API version can remove unnecessary raw-PII fields without breaking existing clients.
+It makes it easy to demonstrate:
 
-Project Structure
+1. What the client sent.
+2. What PrivacyMask detected.
+3. What PrivacyMask masked.
+4. What the provider received.
+5. What the server re-hydrated.
+
+### Important privacy limitation
+
+`originalText`, `detections[].value`, and the re-hydrated `response` can contain sensitive information.
+
+Consumers should therefore avoid logging or persistently storing complete `/analyze` responses.
+
+### Future contract
+
+A future version can introduce a versioned API response that removes unnecessary raw PII from the response boundary while retaining useful metadata such as:
+
+```text
+requestId
+processedText
+provider
+status
+detections[type,start,end]
+response
+```
+
+No such breaking API change is part of the current MVP.
+
+---
+
+# Production Considerations
+
+PrivacyMask is currently **MVP/release-ready**, but several production-scale capabilities are intentionally deferred.
+
+Before a high-scale deployment, consider:
+
+- Distributed rate limiting
+- Persistent/distributed mapping storage
+- TLS termination at a reverse proxy/load balancer
+- Secret management through a dedicated secrets manager
+- Production-specific rate-limit values
+- Observability/metrics
+- Centralized operational logging with strict PII controls
+- Horizontal scaling strategy
+- Production deployment/containerization
+- More advanced PII detection
+- Policy-based privacy controls
+- Versioned API contract without raw PII echo
+- Authentication/authorization for an administrative dashboard
+
+---
+
+# Known Limitations
+
+The current MVP intentionally does not include:
+
+- PostgreSQL persistence
+- Redis
+- Kafka
+- Docker deployment
+- `PERSON_NAME` NLP detection
+- Policy engine
+- Dashboard authentication
+- Distributed mapping storage
+- Distributed rate limiting
+- Version 2 privacy response contract
+- Production TLS termination inside the application
+- Multi-instance shared state
+
+These are deferred scope items rather than hidden implementation gaps.
+
+---
+
+# What PrivacyMask Protects
+
+PrivacyMask is designed around a specific boundary:
+
+```text
+YOUR APPLICATION
+       |
+       | Raw PII
+       v
++--------------------+
+|    PrivacyMask     |
+|                    |
+| Detect             |
+| Mask               |
+| Encrypt mapping    |
++--------------------+
+       |
+       | Masked text only
+       v
++--------------------+
+| External LLM       |
+| Provider           |
++--------------------+
+       |
+       | Masked response
+       v
++--------------------+
+|    PrivacyMask     |
+|                    |
+| Re-hydrate         |
++--------------------+
+       |
+       | Response
+       v
+YOUR APPLICATION
+```
+
+The key security guarantee is:
+
+> **External providers receive masked text only.**
+
+They do not receive:
+
+- Raw PII
+- Encryption mappings
+- Encryption keys
+- Provider credentials belonging to the application
+
+---
+
+# Repository Structure
+
+```text
 PrivacyMask/
 |
 ├── privacymask-backend/
-|   |
-|   ├── src/
-|   |   ├── main/
-|   |   |   ├── java/
-|   |   |   └── resources/
-|   |   |
-|   |   └── test/
-|   |
-|   ├── pom.xml
-|   └── .env.example
-|
+│   ├── src/
+│   │   ├── main/
+│   │   │   └── java/
+│   │   │       └── com/
+│   │   │           └── privacymask/
+│   │   ├── test/
+│   │   ├── pom.xml
+│   │   └── .env.example
+│   │
+│   └── README / local configuration
+│
 ├── frontend/
-|   |
-|   ├── src/
-|   ├── package.json
-|   ├── package-lock.json
-|   ├── vite.config.js
-|   └── .env.example
-|
-├── README.md
+│   ├── src/
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── vite.config.js
+│   └── .env.example
+│
+├── .gitignore
 ├── LICENSE
-└── .gitignore
-5-Minute Demo
-1. Start backend
-cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\privacymask-backend
+└── README.md
+```
 
-$env:PRIVACYMASK_API_KEY="test-service-key"
+Generated files such as:
 
-$b = New-Object byte[] 32
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
-$env:PRIVACYMASK_ENCRYPTION_KEY=[Convert]::ToBase64String($b)
+```text
+target/
+node_modules/
+dist/
+```
 
-$env:PRIVACYMASK_CORS_ALLOWED_ORIGINS="http://localhost:5173"
+are ignored by Git.
 
-mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=8081"
-2. Start frontend
-cd C:\Users\beher\OneDrive\Desktop\PrivacyMask\frontend
-npm run dev
-3. Open
-http://localhost:5173
-4. Use synthetic test data
-Customer john@example.com needs help with his refund.
-5. Select
-Mock
-6. Run analysis
+Local request payloads and operational scratch files are also excluded through `.gitignore`.
 
-The provider-facing text should be:
+---
 
-Customer {{EMAIL_001}} needs help with his refund.
-7. Verify
+# GitHub Release
 
-The UI should show:
+PrivacyMask is maintained as a Git repository.
 
-gateway status
-masked token
-detection metadata
-provider
-request ID
-re-hydrated response
+The release contains:
 
-Use synthetic data for demonstrations.
+- Backend source
+- Backend tests
+- Frontend source
+- Frontend tests
+- README documentation
+- Environment templates
+- Git ignore rules
+- MIT license
 
-Do not paste real customer information into a development environment.
+No production secrets should be committed.
 
-Troubleshooting
-401 Unauthorized
+Never commit:
 
-Verify:
+```text
+.env
+```
 
-X-API-Key
+real API keys, encryption keys, provider credentials, certificates, passwords, or operational secrets.
 
-matches:
+---
 
-PRIVACYMASK_API_KEY
-400 Invalid Request
-
-Check:
-
-JSON syntax
-Content-Type
-required text
-required provider
-413 Payload Too Large
-
-The configured maximum text length was exceeded.
-
-429 Too Many Requests
-
-The rate limit has been exhausted.
-
-Wait for the value specified by:
-
-Retry-After
-500 Failed to Process Request Securely
-
-If the request contains PII, verify:
-
-PRIVACYMASK_ENCRYPTION_KEY
-
-is valid Base64 representing exactly 32 random bytes.
-
-CORS Error
-
-Set:
-
-$env:PRIVACYMASK_CORS_ALLOWED_ORIGINS="http://localhost:5173"
-
-Restart the backend.
-
-Frontend Cannot Reach Backend
-
-Verify the backend is running:
-
-http://localhost:8081
-
-and the frontend API configuration points to the correct backend URL.
-
-Project Status
-MVP Status: COMPLETE
-
-PrivacyMask MVP is complete and release-ready within its documented scope.
-
-Verified release baseline:
-
-Backend tests       : 361 passed
-Backend failures    : 0
-Backend errors      : 0
-Backend skipped     : 0
-
-Frontend tests      : 14 passed
-Frontend failures   : 0
-
-Frontend build      : PASS
-
-/status             : 200 PASS
-/analyze            : 200 PASS
-
-PII masking         : PASS
-Encrypted mapping   : PASS
-Provider boundary   : PASS
-Response rehydrate  : PASS
-Authentication      : PASS
-Rate limiting       : PASS
-CORS restrictions   : PASS
-Release Verification
-
-The project has been verified for:
-
-Authentication
-        |
-        v
-Rate Limiting
-        |
-        v
-Request Validation
-        |
-        v
-PII Detection
-        |
-        v
-PII Masking
-        |
-        v
-Encrypted Mapping
-        |
-        v
-Provider Boundary
-        |
-        v
-Response Re-hydration
-
-The most important guarantee is:
-
-RAW PII
-   |
-   X
-External LLM
-
-Instead:
-
-RAW PII
-   |
-   v
-PrivacyMask
-   |
-   v
-MASKED TEXT
-   |
-   v
-External LLM
-Future Roadmap
-
-Potential future versions may include:
-
-PERSON_NAME NLP detection.
-More PII types.
-PostgreSQL-backed mapping storage.
-Redis-based distributed rate limiting.
-Distributed deployment.
-Docker support.
-Kubernetes deployment.
-Policy engine.
-Administrative dashboard.
-Dashboard authentication.
-Audit logging with privacy controls.
-Advanced provider routing.
-Versioned API.
-Safer response contract without unnecessary raw-PII echo.
-Enterprise secret management.
-Production observability.
-Multi-tenant isolation.
-Reserved for Later
-
-Explicitly not built in the current MVP:
-
-PERSON_NAME NLP detection
-policy engine
-PostgreSQL persistence
-dashboard authentication
-Redis
-Kafka
-Docker deployment
-distributed rate limiting
-distributed mapping storage
-versioned v2 response contract without raw-PII echo
-License
+# License
 
 MIT License.
 
-See:
+See [`LICENSE`](LICENSE).
 
-LICENSE
-Author
+---
 
-Debashis Behera
+# Status
 
-PrivacyMask is a portfolio project demonstrating:
+**PrivacyMask MVP: RELEASE READY WITH DOCUMENTED LIMITATIONS**
 
-Java backend engineering
-Spring Boot
-Spring WebFlux
-Spring Security
-React frontend development
-REST API design
-PII detection
-Data masking
-AES-256-GCM encryption
-API-key authentication
-Rate limiting
-Secure LLM integration
-Provider-boundary security
-Response re-hydration
-Automated testing
-Production-oriented security design
+Verified:
+
+```text
+Backend tests:   361 passed
+Frontend tests:   14 passed
+Frontend build:   PASS
+API smoke test:   PASS
+Authentication:   PASS
+Rate limiting:    PASS
+PII masking:      PASS
+Encryption:       PASS
+Provider boundary: PASS
+Re-hydration:     PASS
+CORS:             PASS
+Error handling:   PASS
+```
+
+The current implementation is suitable as a portfolio/GitHub MVP demonstrating:
+
+- Java
+- Spring Boot
+- Spring WebFlux
+- Spring Security
+- REST APIs
+- React
+- PII detection
+- Data masking
+- AES-256-GCM
+- API security
+- Rate limiting
+- LLM privacy boundaries
+- Automated testing
+- Secure response re-hydration
+
+---
+
+## Reserved for Later
+
+Explicitly not built in the current MVP:
+
+- `PERSON_NAME` NLP detection
+- Policy engine
+- PostgreSQL persistence
+- Dashboard authentication
+- Redis
+- Kafka
+- Docker deployment
+- Distributed state
+- Version 2 response contract without raw-PII echo
