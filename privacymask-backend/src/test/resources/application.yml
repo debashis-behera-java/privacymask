@@ -1,0 +1,17 @@
+# Test-only overrides. NEVER copy test values to production.
+privacymask:
+  encryption:
+    # DUMMY TEST KEY ONLY - a throwaway value for automated tests, not a secret.
+    # Production must set PRIVACYMASK_ENCRYPTION_KEY in the environment.
+    key: a1yaytmjjPfsvlbMzg3aCw//dujMSzodVeXBJ5hrsyk=
+  security:
+    # DUMMY TEST API KEY ONLY - a throwaway value for automated tests.
+    # Production must set PRIVACYMASK_API_KEY in the environment.
+    api-key: test-service-key
+  rate-limit:
+    # Test defaults mirror the main defaults. Phase 12 integration tests
+    # override these with tiny deterministic capacities via
+    # @DynamicPropertySource (each override set gets its own Spring context).
+    enabled: true
+    capacity: 120
+    refill-per-minute: 120

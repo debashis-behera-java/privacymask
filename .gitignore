@@ -1,0 +1,43 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea/
+.classpath
+.project
+.settings/
+*.iml
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets - never commit real credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+# Never commit live key material or local run artifacts.
+live*
+*-enckey.txt
+*.pid
+
+# Logs
+*.log
+logs/
+*-out.txt
+*-err.txt
+verify-*.txt
+test-security.txt
+backend-verify*.txt
+
+# Local manual-test payloads (may contain example PII)
+request-*.json
+test-request.json

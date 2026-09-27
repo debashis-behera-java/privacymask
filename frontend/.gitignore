@@ -1,0 +1,14 @@
+# Dependencies and build output are never committed.
+node_modules/
+dist/
+
+# Local environment files may only carry non-secret dev configuration
+# (see .env.example). Never commit real credentials.
+.env
+.env.local
+.env.*.local
+
+# Logs and OS artifacts.
+*.log
+.DS_Store
+Thumbs.db

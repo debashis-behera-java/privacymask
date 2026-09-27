@@ -1,0 +1,97 @@
+# PrivacyMask backend configuration (Phase 1: foundation only).
+server:
+  port: 8080
+
+spring:
+  application:
+    name: privacymask-backend
+  # No datasource configured in Phase 1. The application must start without
+  # PostgreSQL. When persistence is introduced (later phase), add the R2DBC
+  # driver + URL here via environment variables, keeping startup lenient.
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+# Gateway configuration. Values support ${ENV_VAR:default} overrides.
+privacymask:
+  app:
+    name: ${PRIVACYMASK_APP_NAME:PrivacyMask}
+    version: ${PRIVACYMASK_APP_VERSION:0.1.0}
+  encryption:
+    # Base64-encoded 32-byte AES-256 key. Deliberately no usable default:
+    # set PRIVACYMASK_ENCRYPTION_KEY in the environment. Encryption fails
+    # clearly when invoked without a valid key; the app still starts (requests
+    # without PII mappings do not need the key).
+    key: ${PRIVACYMASK_ENCRYPTION_KEY:}
+  mapping:
+    # TTL for the Phase 5 in-memory encrypted-mapping store (request-scoped,
+    # kept for future re-hydration). Persistent storage arrives in a later phase.
+    ttl: ${PRIVACYMASK_MAPPING_TTL:10m}
+  request:
+    # Maximum accepted input length in Java characters (UTF-16 code units -
+    # deterministic for ASCII, Unicode, and emoji). Larger requests are rejected
+    # with HTTP 413 before any detection/encryption/provider work runs.
+    max-text-length: ${PRIVACYMASK_MAX_TEXT_LENGTH:10000}
+  provider:
+    # Reactive bound on every provider call. Breaches fail closed with
+    # HTTP 504: never retried, never replaced with raw input.
+    timeout: ${PRIVACYMASK_PROVIDER_TIMEOUT:10s}
+  security:
+    # Service API key for the gateway. No usable default: the app starts without
+    # a key, and protected endpoints then fail safely with HTTP 401 at request
+    # time. Never commit a real key. Sent only via X-API-Key header.
+    api-key: ${PRIVACYMASK_API_KEY:}
+  cors:
+    # Browser CORS allow-list (exact origins, comma-separated). Empty by
+    # default: no CORS headers are emitted and browsers stay blocked. Local
+    # frontend development sets e.g. PRIVACYMASK_CORS_ALLOWED_ORIGINS=
+    # http://localhost:5173. Never use "*"; credentials are never allowed.
+    allowed-origins: ${PRIVACYMASK_CORS_ALLOWED_ORIGINS:}
+  rate-limit:
+    # Token-bucket abuse protection for POST /api/v1/privacymask/analyze.
+    # Enforced AFTER API-key authentication and BEFORE any PII processing.
+    # In-memory and instance-local (single-instance only): no Redis/database.
+    # enabled=false bypasses rate limiting only; authentication stays enforced.
+    enabled: ${PRIVACYMASK_RATE_LIMIT_ENABLED:true}
+    # Burst capacity in tokens; each admitted request consumes exactly one.
+    capacity: ${PRIVACYMASK_RATE_LIMIT_CAPACITY:120}
+    # Sustained rate: tokens refilled per minute (continuous, not windowed).
+    refill-per-minute: ${PRIVACYMASK_RATE_LIMIT_REFILL_PER_MINUTE:120}
+  providers:
+    openai:
+      # Overridable base URL (tests point this at a local mock HTTP server).
+      base-url: ${PRIVACYMASK_OPENAI_BASE_URL:https://api.openai.com}
+      # No usable default on purpose: the app starts without a key, and
+      # selecting openai then fails safely at request time. Never commit a key.
+      api-key: ${PRIVACYMASK_OPENAI_API_KEY:}
+      # Configurable model; override per environment as models evolve.
+      model: ${PRIVACYMASK_OPENAI_MODEL:gpt-4o-mini}
+    anthropic:
+      # Overridable base URL (tests point this at a local mock HTTP server).
+      base-url: ${PRIVACYMASK_ANTHROPIC_BASE_URL:https://api.anthropic.com}
+      # No usable default on purpose: the app starts without a key, and
+      # selecting anthropic then fails safely at request time. Never commit a key.
+      api-key: ${PRIVACYMASK_ANTHROPIC_API_KEY:}
+      # Configurable model; override per environment as models evolve.
+      # Deliberately a configured default, never a hard-coded business rule.
+      model: ${PRIVACYMASK_ANTHROPIC_MODEL:claude-sonnet-4-20250514}
+      # Anthropic Messages API version header. Kept centralized so future
+      # API-version updates are a localized configuration change.
+      api-version: ${PRIVACYMASK_ANTHROPIC_API_VERSION:2023-06-01}
+  # Reserved for future phases (not yet implemented):
+  # security:
+  # detection:
+  # masking:
+  # llm:
+  # policy:
+
+management:
+  # Health details stay minimal in Phase 1.
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.privacymask: INFO
+  # Privacy rule: application code must never log headers, bodies, tokens, or PII.
