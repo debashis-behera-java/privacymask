@@ -423,3 +423,5 @@ This repository is a portfolio MVP, not a deployed production system. Before any
 | 14 | Production hardening: wildcard-CORS rejection, backend `.env.example`, gitignore hygiene, invalid-key regression test |
 
 Reserved for later (explicitly not built): `PERSON_NAME` NLP detection, policy engine, PostgreSQL persistence, dashboard auth, Redis/Kafka/Docker, and a v2 response contract without raw-PII echo.
+#   P r i v a c y M a s k  
+ 
